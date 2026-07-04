@@ -1,0 +1,9 @@
+# 注意：此文件仅用于快速安装，正式依赖请参见 pyproject.toml
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+mcp>=1.0.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+python-dotenv>=1.0.0

@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InsightFlow - 多Agent分析</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0f1117;
+  --bg-secondary: #161822;
+  --bg-tertiary: #1c1f2e;
+  --bg-card: #1e2133;
+  --bg-hover: #252840;
+  --border: #2a2d42;
+  --border-active: #4f5aff;
+  --text-primary: #e4e6f0;
+  --text-secondary: #8b8fa8;
+  --text-muted: #5c6078;
+  --accent: #4f5aff;
+  --accent-hover: #6370ff;
+  --accent-dim: rgba(79,90,255,0.12);
+  --green: #34d399;
+  --green-dim: rgba(52,211,153,0.12);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.12);
+  --yellow: #fbbf24;
+  --yellow-dim: rgba(251,191,36,0.12);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.12);
+  --purple: #a78bfa;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* Layout */
+.app {
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  height: 100vh;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: #fff;
+}
+.header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+.header .version {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 500;
+}
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.2s;
+}
+.header-link:hover { color: var(--text-primary); }
+
+/* Main content */
+.main {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom: none; }
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+/* Upload area */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.upload-zone.has-file {
+  border-color: var(--green);
+  border-style: solid;
+  background: var(--green-dim);
+}
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+.upload-text { font-size: 13px; color: var(--text-secondary); }
+.upload-text strong { color: var(--text-primary); }
+.upload-filename {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green);
+  word-break: break-all;
+}
+.upload-input { display: none; }
+.file-info {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Textarea */
+textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--text-muted); }
+
+/* Buttons */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Status display */
+.status-panel {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: none;
+}
+.status-panel.visible { display: block; }
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.status-badge.running { background: var(--blue-dim); color: var(--blue); }
+.status-badge.completed { background: var(--green-dim); color: var(--green); }
+.status-badge.failed { background: var(--red-dim); color: var(--red); }
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-badge.running .status-dot {
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.status-time { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+/* Progress bar */
+.progress-bar-wrap {
+  margin-bottom: 12px;
+}
+.progress-bar-bg {
+  height: 4px;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+.progress-bar-fill.completed { background: var(--green); }
+.progress-bar-fill.failed { background: var(--red); }
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Pipeline stages */
+.stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.stage-chip {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.stage-chip.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  box-shadow: 0 0 8px rgba(96,165,250,0.2);
+}
+.stage-chip.done {
+  background: var(--green-dim);
+  color: var(--green);
+}
+.stage-chip.error {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+/* Content area */
+.content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Welcome / empty state */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 12px;
+  padding: 40px;
+}
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-title { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+.empty-desc { font-size: 13px; text-align: center; max-width: 400px; line-height: 1.7; }
+
+/* Tabs */
+.tabs-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  background: var(--bg-secondary);
+  gap: 0;
+}
+.tab-btn {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-btn .tab-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  margin-left: 6px;
+}
+
+/* Tab content */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: none;
+}
+.tab-content.active { display: block; }
+
+/* Report (markdown) */
+.report-content {
+  max-width: 800px;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.report-content h1 { font-size: 22px; margin: 24px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.report-content h2 { font-size: 18px; margin: 20px 0 10px; color: var(--accent); }
+.report-content h3 { font-size: 15px; margin: 16px 0 8px; }
+.report-content p { margin: 8px 0; }
+.report-content table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+.report-content th, .report-content td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+.report-content th { background: var(--bg-tertiary); font-weight: 600; }
+.report-content code { background: var(--bg-tertiary); padding: 2px 6px; border-radius: 3px; font-family: var(--mono); font-size: 12px; }
+.report-content pre { background: var(--bg-tertiary); padding: 16px; border-radius: var(--radius); overflow-x: auto; margin: 12px 0; }
+.report-content pre code { background: none; padding: 0; }
+.report-content ul, .report-content ol { padding-left: 20px; margin: 8px 0; }
+.report-content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-secondary); margin: 12px 0; }
+
+/* Trace visualization */
+.trace-timeline {
+  position: relative;
+  padding: 0;
+}
+.trace-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  height: 36px;
+}
+.trace-label {
+  width: 120px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+}
+.trace-bar-container {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.trace-bar {
+  height: 100%;
+  border-radius: 4px;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: #fff;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+.trace-bar:hover { opacity: 0.85; }
+.trace-bar.success { background: linear-gradient(135deg, #4f5aff, #6370ff); }
+.trace-bar.error { background: linear-gradient(135deg, #f87171, #ef4444); }
+.trace-duration {
+  width: 80px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+.trace-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.trace-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.trace-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: var(--mono);
+  margin-bottom: 4px;
+}
+.trace-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Quality scores */
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.quality-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.quality-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.quality-card-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+.quality-grade {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.grade-A { background: var(--green-dim); color: var(--green); }
+.grade-B { background: var(--blue-dim); color: var(--blue); }
+.grade-C { background: var(--yellow-dim); color: var(--yellow); }
+.grade-D { background: var(--yellow-dim); color: var(--yellow); }
+.grade-F { background: var(--red-dim); color: var(--red); }
+.quality-bar-bg {
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.quality-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.quality-score-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+.quality-details { margin-top: 8px; }
+.quality-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 3px 0;
+  color: var(--text-muted);
+}
+.quality-detail-row span:last-child { color: var(--text-secondary); font-family: var(--mono); }
+
+/* Pipeline metrics card */
+.metrics-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.metrics-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.metric-item { text-align: center; }
+.metric-value { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+.metric-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* Data tab */
+.data-section {
+  margin-bottom: 24px;
+}
+.data-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.data-block {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+/* Messages log */
+.messages-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.message-item {
+  padding: 10px 14px;
+  border-left: 3px solid var(--border);
+  margin-bottom: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 12px;
+}
+.message-role {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  color: var(--accent);
+}
+.message-content {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 12px;
+}
+
+/* Recommendations */
+.recommendations {
+  margin-top: 20px;
+}
+.rec-item {
+  padding: 10px 14px;
+  background: var(--yellow-dim);
+  border-left: 3px solid var(--yellow);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.4s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.toast.success { background: var(--green); color: #000; }
+.toast.error { background: var(--red); color: #000; }
+.toast.info { background: var(--blue); color: #000; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">IF</div>
+      <h1>InsightFlow</h1>
+      <span class="version">v0.3.0</span>
+    </div>
+    <div class="header-right">
+      <a class="header-link" href="https://github.com" target="_blank">LangGraph + MCP</a>
+      <span class="header-link" id="sessionCount">0 个会话</span>
+
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Upload -->
+      <div class="sidebar-section">
+        <div class="section-title">数据源</div>
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-icon">&#128206;</div>
+          <div class="upload-text">
+            <strong>点击或拖拽</strong>上传CSV文件
+          </div>
+          <div class="upload-filename" id="uploadFilename" style="display:none"></div>
+          <div class="file-info" id="fileInfo" style="display:none"></div>
+          <input type="file" class="upload-input" id="fileInput" accept=".csv">
+        </div>
+      </div>
+
+      <!-- Analysis task -->
+      <div class="sidebar-section">
+        <div class="section-title">分析任务</div>
+        <textarea id="taskInput" placeholder="描述你想要分析的内容,例如:&#10;&#10;分析各产品类别的销售趋势并识别季节性模式"></textarea>
+      </div>
+
+      <!-- Human review toggle -->
+      <div class="sidebar-section">
+        <div class="section-title">执行选项</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+          <input type="checkbox" id="humanReviewToggle" checked style="width:16px;height:16px;cursor:pointer;">
+          <span>启用人工审核（清洗策略）</span>
+        </label>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5;">
+          开启后，在制定清洗计划后会暂停，等待你确认后再执行
+        </div>
+      </div>
+
+      <!-- Run button -->
+      <div class="sidebar-section">
+        <button class="btn btn-primary" id="runBtn" disabled>
+          <span id="runBtnText">运行InsightFlow</span>
+        </button>
+      </div>
+
+      <!-- Status panel -->
+      <div class="sidebar-section">
+        <div class="status-panel" id="statusPanel">
+          <div class="status-header">
+            <span class="status-badge running" id="statusBadge">
+              <span class="status-dot"></span>
+              <span id="statusText">运行中</span>
+            </span>
+            <span class="status-time" id="statusTime">0秒</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-label">
+              <span id="stageLabel">初始化...</span>
+              <span id="progressPct">0%</span>
+            </div>
+          </div>
+          <div class="stages" id="stagesContainer">
+            <span class="stage-chip" data-stage="scout">侦察</span>
+            <span class="stage-chip" data-stage="health_check">健康检查</span>
+            <span class="stage-chip" data-stage="cleaner_plan">清洗计划</span>
+            <span class="stage-chip" data-stage="human_review">人工审核</span>
+            <span class="stage-chip" data-stage="cleaner_execute">清洗执行</span>
+            <span class="stage-chip" data-stage="analyst">分析师</span>
+            <span class="stage-chip" data-stage="visualizer">可视化</span>
+            <span class="stage-chip" data-stage="reporter">报告生成</span>
+          </div>
+
+          <!-- Human review actions (shown when waiting for review) -->
+          <div id="humanReviewActions" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="font-size:12px;color:var(--yellow);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:8px;height:8px;background:var(--yellow);border-radius:50%;animation:pulse 1.5s infinite;"></span>
+              <span>等待人工审核清洗计划</span>
+            </div>
+
+            <!-- Cleaning plan display -->
+            <div id="cleaningPlanDisplay" style="background:var(--bg-primary);border-radius:var(--radius);padding:12px;margin-bottom:12px;max-height:300px;overflow-y:auto;">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">清洗计划详情：</div>
+              <div id="cleaningPlanContent" style="font-size:12px;color:var(--text-secondary);line-height:1.6;"></div>
+            </div>
+
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary" id="approveBtn" style="flex:1;">
+                ✅ 批准执行
+              </button>
+              <button class="btn btn-secondary" id="rejectBtn" style="flex:1;">
+                ❌ 拒绝并重试
+              </button>
+            </div>
+            <div id="reviewFeedback" style="margin-top:8px;">
+              <textarea id="feedbackInput" placeholder="可选：提供反馈意见，帮助改进清洗计划..." style="min-height:60px;font-size:12px;"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content" id="contentArea">
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">&#9881;&#65039;</div>
+        <div class="empty-title">InsightFlow</div>
+        <div class="empty-desc">
+          上传CSV文件并描述你的分析任务。五个专业Agent将协作探索数据、进行清洗、
+          执行统计分析、生成可视化图表,并产出综合分析报告。
+        </div>
+      </div>
+
+      <!-- Tabs (hidden initially) -->
+      <div class="tabs-bar" id="tabsBar" style="display:none">
+        <button class="tab-btn active" data-tab="report">报告</button>
+        <button class="tab-btn" data-tab="trace">追踪</button>
+        <button class="tab-btn" data-tab="quality">质量</button>
+        <button class="tab-btn" data-tab="data">数据</button>
+        <button class="tab-btn" data-tab="messages">消息</button>
+      </div>
+
+      <!-- Report tab -->
+      <div class="tab-content active" id="tab-report" style="display:none">
+        <div class="report-content" id="reportContent">
+          <p style="color:var(--text-muted)">等待结果...</p>
+        </div>
+      </div>
+
+      <!-- Trace tab -->
+      <div class="tab-content" id="tab-trace" style="display:none">
+        <div id="traceContent">
+          <p style="color:var(--text-muted)">等待结果...</p>
+        </div>
+      </div>
+
+      <!-- Quality tab -->
+      <div class="tab-content" id="tab-quality" style="display:none">
+        <div id="qualityContent">
+          <p style="color:var(--text-muted)">等待结果...</p>
+        </div>
+      </div>
+
+      <!-- Data tab -->
+      <div class="tab-content" id="tab-data" style="display:none">
+        <div id="dataContent">
+          <p style="color:var(--text-muted)">等待结果...</p>
+        </div>
+      </div>
+
+      <!-- Messages tab -->
+      <div class="tab-content" id="tab-messages" style="display:none">
+        <div id="messagesContent">
+          <p style="color:var(--text-muted)">等待结果...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =========================================================================
+// 状态管理 — 全局变量，跟踪上传文件、当前会话、轮询状态等
+// =========================================================================
+let uploadedFile = null;  // { file_id, filename, path, size }
+let currentSession = null; // { session_id, ... }
+let pollTimer = null;
+let pollInterval = 2000;   // Adaptive polling: starts at 2s, grows to 5s
+let lastPollStatus = null; // Last seen status, to detect changes
+let startTime = null;
+let isWaitingForReview = false; // 是否在等待人工审核
+
+// =========================================================================
+// DOM 引用 — 缓存常用元素，避免反复查询
+// =========================================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const uploadZone = $('#uploadZone');
+const fileInput = $('#fileInput');
+const uploadFilename = $('#uploadFilename');
+const fileInfo = $('#fileInfo');
+const taskInput = $('#taskInput');
+const humanReviewToggle = $('#humanReviewToggle');
+const runBtn = $('#runBtn');
+const runBtnText = $('#runBtnText');
+const statusPanel = $('#statusPanel');
+const statusBadge = $('#statusBadge');
+const statusText = $('#statusText');
+const statusTime = $('#statusTime');
+const progressFill = $('#progressFill');
+const stageLabel = $('#stageLabel');
+const progressPct = $('#progressPct');
+const stagesContainer = $('#stagesContainer');
+const emptyState = $('#emptyState');
+const tabsBar = $('#tabsBar');
+const toast = $('#toast');
+const humanReviewActions = $('#humanReviewActions');
+const approveBtn = $('#approveBtn');
+const rejectBtn = $('#rejectBtn');
+const feedbackInput = $('#feedbackInput');
+
+// =========================================================================
+// 提示通知（Toast） — 右下角弹出消息，3秒自动消失
+// =========================================================================
+function showToast(msg, type = 'info') {
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => { toast.className = 'toast'; }, 3000);
+}
+
+// =========================================================================
+// 文件上传 — 拖拽或点击上传 CSV，调用 /api/upload 接口
+// =========================================================================
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+
+async function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    showToast('仅支持CSV文件', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '上传失败');
+    }
+    uploadedFile = await res.json();
+
+    uploadZone.classList.add('has-file');
+    uploadFilename.style.display = 'block';
+    uploadFilename.textContent = uploadedFile.filename;
+    fileInfo.style.display = 'block';
+    fileInfo.textContent = `${(uploadedFile.size / 1024).toFixed(1)} KB`;
+
+    updateRunButton();
+    showToast('文件上传成功', 'success');
+  } catch (err) {
+    showToast(`上传失败: ${err.message}`, 'error');
+  }
+}
+
+// =========================================================================
+// 启动 InsightFlow — 校验输入后调用 /api/run，开启后台执行
+// =========================================================================
+taskInput.addEventListener('input', updateRunButton);
+
+function updateRunButton() {
+  const hasFile = !!uploadedFile;
+  const hasTask = taskInput.value.trim().length > 0;
+  runBtn.disabled = !(hasFile && hasTask);
+}
+
+runBtn.addEventListener('click', startPipeline);
+
+async function startPipeline() {
+  if (!uploadedFile || !taskInput.value.trim()) return;
+
+  runBtn.disabled = true;
+  runBtnText.textContent = '启动中...';
+
+  try {
+    const res = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analysis_task: taskInput.value.trim(),
+        data_filename: uploadedFile.filename,
+        human_review: humanReviewToggle.checked,  // 传递人工审核设置
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '启动InsightFlow失败');
+    }
+
+    const data = await res.json();
+    currentSession = data;
+    startTime = Date.now();
+
+    // Show status panel
+    statusPanel.classList.add('visible');
+    runBtnText.textContent = '运行中...';
+
+    // Reset review state
+    isWaitingForReview = false;
+    humanReviewActions.style.display = 'none';
+
+    // Start polling
+    pollStatus();
+    showToast('InsightFlow已启动', 'info');
+  } catch (err) {
+    showToast(`失败: ${err.message}`, 'error');
+    runBtn.disabled = false;
+    runBtnText.textContent = '运行InsightFlow';
+  }
+}
+
+// =========================================================================
+// 状态轮询 — 自适应间隔，状态无变化时逐渐拉长（2s→5s）
+// =========================================================================
+function pollStatus() {
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  pollInterval = 2000;       // Reset interval on (re)start
+  lastPollStatus = null;
+  pollOnce();
+}
+
+async function pollOnce() {
+  if (!currentSession) return;
+
+  try {
+    const res = await fetch(`/api/status/${currentSession.session_id}`);
+    if (!res.ok) { schedulePoll(3000); return; }
+    const data = await res.json();
+
+    // Merge status data into currentSession (includes cleaning_plan when waiting_review)
+    Object.assign(currentSession, data);
+
+    // Adaptive interval: reset on status change, grow otherwise
+    if (data.status !== lastPollStatus) {
+      pollInterval = 2000;
+      lastPollStatus = data.status;
+    } else {
+      pollInterval = Math.min(pollInterval + 500, 5000);
+    }
+
+    updateStatusUI(data);
+
+    if (data.status === 'completed') {
+      pollTimer = null;
+      showToast('InsightFlow完成!', 'success');
+      await fetchResults();
+      runBtn.disabled = false;
+      runBtnText.textContent = '运行';
+      return;  // Stop polling
+    }
+
+    if (data.status === 'failed') {
+      pollTimer = null;
+      showToast(`InsightFlow失败: ${data.error}`, 'error');
+      runBtn.disabled = false;
+      runBtnText.textContent = '运行';
+      return;  // Stop polling
+    }
+
+    if (data.status === 'waiting_review') {
+      pollTimer = null;
+      return;  // Stop polling — will resume when user submits review
+    }
+
+    // Continue polling (status is "running")
+    schedulePoll(pollInterval);
+  } catch (err) {
+    console.error('Poll error:', err);
+    schedulePoll(3000);  // Retry after 3s on error
+  }
+}
+
+function schedulePoll(ms) {
+  pollTimer = setTimeout(pollOnce, ms);
+}
+
+function updateStatusUI(data) {
+  // Badge
+  statusBadge.className = `status-badge ${data.status === 'waiting_review' ? 'running' : data.status}`;
+  statusText.textContent = data.status === 'running' ? '运行中' :
+                           data.status === 'completed' ? '已完成' :
+                           data.status === 'failed' ? '失败' :
+                           data.status === 'waiting_review' ? '等待审核' : data.status;
+
+  // Time
+  const elapsed = startTime ? ((Date.now() - startTime) / 1000).toFixed(0) : 0;
+  statusTime.textContent = `${elapsed}秒`;
+
+  // Progress
+  progressFill.style.width = `${data.progress}%`;
+  progressFill.className = `progress-bar-fill ${data.status === 'completed' ? 'completed' : data.status === 'failed' ? 'failed' : ''}`;
+  stageLabel.textContent = data.current_stage_label || data.current_stage;
+  progressPct.textContent = `${data.progress}%`;
+
+  // Stage chips
+  const stages = ['scout', 'health_check', 'cleaner_plan', 'human_review', 'cleaner_execute', 'analyst', 'visualizer', 'reporter'];
+  const currentIdx = stages.indexOf(data.current_stage);
+
+  stagesContainer.querySelectorAll('.stage-chip').forEach((chip) => {
+    const chipStage = chip.dataset.stage;
+    const chipIdx = stages.indexOf(chipStage);
+    chip.className = 'stage-chip';
+    if (data.status === 'completed') {
+      chip.classList.add('done');
+    } else if (data.status === 'failed' && chipStage === data.current_stage) {
+      chip.classList.add('error');
+    } else if (chipIdx < currentIdx) {
+      chip.classList.add('done');
+    } else if (chipStage === data.current_stage) {
+      chip.classList.add('active');
+    }
+  });
+
+  // Check if waiting for human review (only trigger once per waiting_review event)
+  if (data.status === 'waiting_review') {
+    if (!isWaitingForReview) {
+      // First time detecting this waiting_review — show UI and toast once
+      isWaitingForReview = true;
+      humanReviewActions.style.display = 'block';
+
+      // Display cleaning plan directly from currentSession (merged by pollStatus)
+      if (currentSession && currentSession.cleaning_plan) {
+        displayCleaningPlan(currentSession.cleaning_plan);
+      }
+
+      showToast('等待人工审核清洗计划', 'info');
+    }
+  } else {
+    if (isWaitingForReview) {
+      isWaitingForReview = false;
+      humanReviewActions.style.display = 'none';
+    }
+  }
+
+  // Update session count
+  $('#sessionCount').textContent = `${data.session_id ? '1 个会话' : '0 个会话'}`;
+}
+
+// =========================================================================
+// 获取结果 — 执行完成后拉取全部结果并渲染各 Tab 内容
+// =========================================================================
+async function fetchResults() {
+  if (!currentSession) return;
+
+  try {
+    const res = await fetch(`/api/results/${currentSession.session_id}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Update currentSession with latest data
+    Object.assign(currentSession, data);
+
+    // Show tabs
+    emptyState.style.display = 'none';
+    tabsBar.style.display = 'flex';
+
+    // Render each tab
+    renderReport(data.report);
+    renderTrace(data.trace);
+    renderQuality(data.evaluation);
+    renderData(data);
+    renderMessages(data.messages, data.errors);
+
+    // Activate the report tab by default
+    $$('.tab-btn').forEach(b => b.classList.remove('active'));
+    $$('.tab-content').forEach(tc => tc.style.display = 'none');
+    const defaultTab = tabsBar.querySelector('[data-tab="report"]');
+    if (defaultTab) defaultTab.classList.add('active');
+    const reportTabEl = $('#tab-report');
+    if (reportTabEl) reportTabEl.style.display = 'block';
+  } catch (err) {
+    console.error('Failed to fetch results:', err);
+  }
+}
+
+// =========================================================================
+// Tab 切换 — 点击标签页按钮时切换显示内容
+// =========================================================================
+tabsBar.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+
+  $$('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  $$('.tab-content').forEach(tc => tc.style.display = 'none');
+  const tabId = `tab-${btn.dataset.tab}`;
+  const tabEl = $(`#${tabId}`);
+  if (tabEl) tabEl.style.display = 'block';
+});
+
+// =========================================================================
+// 渲染：报告 — 使用 marked.js 将 Markdown 渲染为 HTML
+// =========================================================================
+function renderReport(report) {
+  const el = $('#reportContent');
+  if (!report) {
+    el.innerHTML = '<p style="color:var(--text-muted)">未生成报告。</p>';
+    return;
+  }
+  el.innerHTML = marked.parse(report);
+}
+
+// =========================================================================
+// 渲染：追踪 — 将 tracer span 数据绘制为甘特图式时间线
+// =========================================================================
+function renderTrace(trace) {
+  const el = $('#traceContent');
+  if (!trace || !trace.spans || trace.spans.length === 0) {
+    el.innerHTML = '<p style="color:var(--text-muted)">无可用追踪数据。</p>';
+    return;
+  }
+
+  const spans = trace.spans;
+  const totalDuration = trace.total_duration_ms || Math.max(...spans.map(s => s.end_time)) - Math.min(...spans.map(s => s.start_time));
+  const minStart = Math.min(...spans.map(s => s.start_time));
+
+  // Summary cards
+  const successCount = spans.filter(s => s.status === 'success').length;
+  const errorCount = spans.filter(s => s.status !== 'success').length;
+  const slowest = spans.reduce((a, b) => a.duration_ms > b.duration_ms ? a : b);
+
+  let html = `
+    <div class="trace-summary">
+      <div class="trace-stat">
+        <div class="trace-stat-value" style="color:var(--accent)">${(totalDuration / 1000).toFixed(1)}秒</div>
+        <div class="trace-stat-label">总耗时</div>
+      </div>
+      <div class="trace-stat">
+        <div class="trace-stat-value">${spans.length}</div>
+        <div class="trace-stat-label">Agent节点</div>
+      </div>
+      <div class="trace-stat">
+        <div class="trace-stat-value" style="color:var(--green)">${successCount}</div>
+        <div class="trace-stat-label">成功</div>
+      </div>
+      <div class="trace-stat">
+        <div class="trace-stat-value" style="color:var(--red)">${errorCount}</div>
+        <div class="trace-stat-label">失败</div>
+      </div>
+    </div>
+
+  `;
+
+  for (const span of spans) {
+    const offset = ((span.start_time - minStart) / totalDuration) * 100;
+    const width = Math.max((span.duration_ms / totalDuration) * 100, 1);
+    const barClass = span.status === 'success' ? 'success' : 'error';
+    const durStr = span.duration_ms >= 1000 ? `${(span.duration_ms / 1000).toFixed(1)}s` : `${Math.round(span.duration_ms)}ms`;
+
+    html += `
+      <div class="trace-bar-row">
+        <div class="trace-label">${span.node_name}</div>
+        <div class="trace-bar-container">
+          <div class="trace-bar ${barClass}" style="left:${offset}%;width:${width}%" title="${span.node_name}: ${durStr}">
+            ${width > 8 ? durStr : ''}
+          </div>
+        </div>
+        <div class="trace-duration">${durStr}</div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// =========================================================================
+// 渲染：质量评估 — 展示各 Agent 得分、等级和改进建议
+// =========================================================================
+function renderQuality(evaluation) {
+  const el = $('#qualityContent');
+  if (!evaluation || !evaluation.scores) {
+    el.innerHTML = '<p style="color:var(--text-muted)">无可用评估数据。</p>';
+    return;
+  }
+
+  const pm = evaluation.pipeline_metrics || {};
+  const scores = evaluation.scores || [];
+  const recs = evaluation.recommendations || [];
+
+  // Pipeline metrics
+  const pipelineScore = pm.pipeline_score || 0;
+  const pipelineGrade = pm.grade || 'N/A';
+  const avgScore = pm.avg_agent_score || 0;
+
+  let html = `
+    <div class="metrics-card">
+      <div class="metrics-title">InsightFlow指标</div>
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <div class="metric-value" style="color:var(--accent)">${(pipelineScore * 100).toFixed(1)}%</div>
+          <div class="metric-label">InsightFlow得分</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value" style="color:var(--accent)">${(avgScore * 100).toFixed(1)}%</div>
+          <div class="metric-label">平均Agent得分</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value">${pipelineGrade}</div>
+          <div class="metric-label">等级</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value">${scores.length}</div>
+          <div class="metric-label">评估Agent数</div>
+        </div>
+      </div>
+    </div>
+    <div class="quality-grid">
+  `;
+
+  for (const score of scores) {
+    const pct = (score.overall_score * 100).toFixed(0);
+    const grade = score.grade || 'N/A';
+    const barColor = score.overall_score >= 0.8 ? 'var(--green)' :
+                     score.overall_score >= 0.6 ? 'var(--blue)' :
+                     score.overall_score >= 0.4 ? 'var(--yellow)' : 'var(--red)';
+
+    html += `
+      <div class="quality-card">
+        <div class="quality-card-header">
+          <div class="quality-card-title">${score.agent_name}</div>
+          <span class="quality-grade grade-${grade}">${grade}</span>
+        </div>
+        <div class="quality-bar-bg">
+          <div class="quality-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div class="quality-score-text">${pct}%</div>
+        <div class="quality-details">
+    `;
+
+    // Show dimension scores
+    if (score.dimension_scores) {
+      for (const [dim, val] of Object.entries(score.dimension_scores)) {
+        html += `
+          <div class="quality-detail-row">
+            <span>${dim}</span>
+            <span>${typeof val === 'number' ? (val * 100).toFixed(0) + '%' : val}</span>
+          </div>
+        `;
+      }
+    }
+
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+
+  // Recommendations
+  if (recs.length > 0) {
+    html += '<div class="recommendations"><div class="data-section-title">建议</div>';
+    for (const rec of recs) {
+      html += `<div class="rec-item">${rec}</div>`;
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// =========================================================================
+// 渲染：数据 — 展示数据概况、清洗计划、分析结果和图表
+// =========================================================================
+function renderData(data) {
+  const el = $('#dataContent');
+  let html = '';
+
+  if (data.data_profile && Object.keys(data.data_profile).length > 0) {
+    html += `
+      <div class="data-section">
+        <div class="data-section-title">数据概况 (侦察Agent)</div>
+        <div class="data-block">${JSON.stringify(data.data_profile, null, 2)}</div>
+      </div>
+    `;
+  }
+
+  if (data.cleaning_plan && Object.keys(data.cleaning_plan).length > 0) {
+    html += `
+      <div class="data-section">
+        <div class="data-section-title">清洗计划 (清洗Agent)</div>
+        <div class="data-block">${JSON.stringify(data.cleaning_plan, null, 2)}</div>
+      </div>
+    `;
+  }
+
+  if (data.analysis_results && Object.keys(data.analysis_results).length > 0) {
+    html += `
+      <div class="data-section">
+        <div class="data-section-title">分析结果 (分析师Agent)</div>
+        <div class="data-block">${JSON.stringify(data.analysis_results, null, 2)}</div>
+      </div>
+    `;
+  }
+
+  if (data.charts && data.charts.length > 0) {
+    html += `
+      <div class="data-section">
+        <div class="data-section-title">生成的图表</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+    `;
+    for (const chart of data.charts) {
+      const filename = chart.split('/').pop();
+      html += `<img src="/api/download/${data.session_id}/${encodeURIComponent(filename)}" style="max-width:400px;border-radius:8px;border:1px solid var(--border);" alt="${filename}">`;
+    }
+    html += '</div></div>';
+  }
+
+  if (data.quality_history && data.quality_history.length > 0) {
+    html += `
+      <div class="data-section">
+        <div class="data-section-title">质量收敛情况</div>
+        <div class="data-block">${data.quality_history.map((s, i) => `第 ${i + 1} 次迭代: ${(s * 100).toFixed(1)}%`).join('\n')}</div>
+      </div>
+    `;
+  }
+
+  if (!html) {
+    html = '<p style="color:var(--text-muted)">无可用数据。</p>';
+  }
+
+  el.innerHTML = html;
+}
+
+// =========================================================================
+// 渲染：消息 — 展示错误日志和 Agent 间的消息记录
+// =========================================================================
+function renderMessages(messages, errors) {
+  const el = $('#messagesContent');
+  let html = '';
+
+  if (errors && errors.length > 0) {
+    html += '<div class="data-section"><div class="data-section-title" style="color:var(--red)">错误</div>';
+    for (const err of errors) {
+      html += `<div class="message-item" style="border-left-color:var(--red)"><div class="message-content">${err}</div></div>`;
+    }
+    html += '</div>';
+  }
+
+  if (messages && messages.length > 0) {
+    html += '<div class="data-section"><div class="data-section-title">Agent消息</div><div class="messages-list">';
+    for (const msg of messages) {
+      const role = msg.role || '未知';
+      const content = msg.content || '';
+      html += `
+        <div class="message-item">
+          <div class="message-role">${role}</div>
+          <div class="message-content">${content}</div>
+        </div>
+      `;
+    }
+    html += '</div></div>';
+  }
+
+  if (!html) {
+    html = '<p style="color:var(--text-muted)">无消息记录。</p>';
+  }
+
+  el.innerHTML = html;
+}
+
+// =========================================================================
+// 人工审核交互 — 展示清洗计划详情，处理批准/拒绝操作
+// =========================================================================
+function displayCleaningPlan(plan) {
+  const contentEl = $('#cleaningPlanContent');
+  if (!plan || !plan.strategy || plan.strategy.length === 0) {
+    contentEl.innerHTML = '<p style="color:var(--text-muted)">无清洗计划</p>';
+    return;
+  }
+
+  let html = `<div style="margin-bottom:8px;"><strong>整体说明：</strong>${plan.overall_notes || '无'}</div>`;
+  html += '<div style="margin-top:12px;"><strong>清洗步骤：</strong></div>';
+  html += '<ol style="padding-left:20px;margin-top:8px;">';
+
+  for (const step of plan.strategy) {
+    html += `
+      <li style="margin-bottom:8px;">
+        <div><strong>[${step.action}]</strong> 列: ${step.column}</div>
+        <div style="color:var(--text-muted);font-size:11px;margin-top:4px;">
+          参数: ${JSON.stringify(step.params)}
+        </div>
+        <div style="color:var(--text-secondary);font-size:11px;margin-top:2px;">
+          原因: ${step.reason}
+        </div>
+      </li>
+    `;
+  }
+
+  html += '</ol>';
+  contentEl.innerHTML = html;
+}
+
+approveBtn.addEventListener('click', async () => {
+  if (!currentSession || !isWaitingForReview) return;
+
+  try {
+    const res = await fetch(`/api/review/${currentSession.session_id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approved: true,
+        feedback: feedbackInput.value.trim(),
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error('审核请求失败');
+    }
+
+    const data = await res.json();
+    showToast(data.message, 'success');
+    humanReviewActions.style.display = 'none';
+    isWaitingForReview = false;
+
+    // Continue polling for phase 2
+    pollStatus();
+  } catch (err) {
+    showToast(`审核失败: ${err.message}`, 'error');
+  }
+});
+
+rejectBtn.addEventListener('click', async () => {
+  if (!currentSession || !isWaitingForReview) return;
+
+  try {
+    const res = await fetch(`/api/review/${currentSession.session_id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approved: false,
+        feedback: feedbackInput.value.trim(),
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error('审核请求失败');
+    }
+
+    const data = await res.json();
+    showToast(data.message, 'info');
+    humanReviewActions.style.display = 'none';
+    isWaitingForReview = false;
+
+    // Continue polling for phase 2
+    pollStatus();
+  } catch (err) {
+    showToast(`审核失败: ${err.message}`, 'error');
+  }
+});
+
+</script>
+
+</body>
+</html>
